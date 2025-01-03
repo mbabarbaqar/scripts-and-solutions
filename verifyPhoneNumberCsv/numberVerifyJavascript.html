@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="ISO-8859-1">
+		<!--<meta http-equiv="content-type" content="text/html; charset=utf-8" />-->
+		<title>Verify Numbers</title>
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" />
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+		<script src="papaparse.min.js"></script>
+		<style>
+			body
+			{
+			    font-family: "Times New Roman", Times, serif;
+			}
+		</style>
+		<script type="text/javascript">
+			/*
+			* This function will verify numbers if they are valid and existed.
+			*/
+			$(document).ready(function(){
+				//https://numverify.com/dashboard
+				var accessKey = "f26b40ed0491004f36f269d368b22964";//1@gmail
+				//var accessKey = "31902378effe95d0a3cbd8e5638fe156";//client
+				
+				//var countryCode = "PK";
+				var countryCode = "FI";
+				
+				var verifiedNumbers = [];
+			    $('#submit-file').on("click",function(e){
+					e.preventDefault();
+					$('#files').parse({
+						config: {
+							delimiter: "auto",
+							encoding: "ISO-8859-1",
+							complete: displayHTMLTable,
+						},
+						before: function(file, inputElem){
+							//console.log("Parsing file...", file);
+						},
+						error: function(err, file){
+							//console.log("ERROR:", err, file);
+						},
+						complete: function(){
+							//console.log("Done with all files");
+						}
+					});
+			    });
+				
+				function displayHTMLTable(results){
+					var data = results.data;
+					
+					/*console.log(data);
+					return;*/
+					
+					jQuery('#processing').show();
+					(async() => {
+						for(i=0;i<data.length;i++){
+							if(data[i][0]){
+								var number;
+								var name = '';
+								var rowString = data[i][0];
+								
+								//specify phone number field from multiple rows
+								var allColumns = rowString.split(',');
+								if(allColumns.length > 1){
+									number = allColumns[0];
+								}else{
+									number = rowString;
+								}
+								
+								//If number field is concated with name
+								var details = number.split(';');
+								if(details[0] != '' || details[0] != null){
+									number = details[0];
+								}
+								
+								if(number != undefined){
+									number = number.replace(/\D/g,'');
+									if(number == "" && i == 0){
+										verifiedNumbers.push(rowString);
+									}else{
+										const response = await isValid(number, 0, 0);
+									  	if(response.valid == true){
+									  		verifiedNumbers.push(rowString);
+									  		console.log(rowString);
+									  	}
+									  	if(response == false){
+									  		alert("Your plan limit is reached.");
+									  		break;
+									  	}
+									}
+								}
+							}
+							const process = (((i+1) / data.length) * 100);
+							jQuery('#processing').html("Processing.. " + Math.round(process) + "%");
+						}
+						
+						/*
+						* Show data in html
+						*/
+						var table = "No valid numbers found.";
+						var downloadAble = false;
+						if(verifiedNumbers.length > 0){
+							var table = "<table class='table'>";
+							table += "<th>Valid Numbers<th>"
+							for(j=0; j < verifiedNumbers.length; j++){
+								table += "<tr>";
+									var tabRows = verifiedNumbers[j].split(',');
+									for($k = 0; $k < tabRows.length; $k++){
+										table += "<td>";
+											table += tabRows[$k];
+										table += "</td>";
+									}
+									
+								table += "</tr>";
+							}
+							table+= "</table>";
+							downloadAble = true;
+						}
+						
+						$("#parsed_csv_list").html(table);
+						
+						//For downloading
+						if(verifiedNumbers.length > 0 ){
+							$("#list_download").show();
+						}
+					})();
+				}
+				
+				async function isValid(myNumber, counter, tries) {
+				  	var request = [];
+				  	if(counter == 0){
+				  		tries++;
+				  		console.log("trying..", tries);
+				  		try{
+				  			request = await $.get('http://apilayer.net/api/validate?access_key='+accessKey+'&number='+myNumber+'&country_code='+countryCode+'&format=1');
+						} catch (err) {
+						  	//err
+						}
+				  		console.log(request);
+				  		if(tries >= 10){
+					  		return request;
+					  	}
+				  	}
+				  	
+				  	if(request && request.error && request.error.type && request.error.type == 'usage_limit_reached'){
+				  		return false;
+				  	}
+				  	
+			  		if(request && (request.valid == false || request.valid == true)){
+				  		return request;
+				  	}else{
+				  		if(counter == 1000){
+				  			counter = 0;
+				  		}else{
+				  			counter++;
+				  		}
+				  		request = await isValid(myNumber, counter, tries);
+				  		return request;
+				  	}
+				  	return request
+				}
+				$('#export').click(function() {
+					console.log(verifiedNumbers);
+					if(verifiedNumbers.length == 0){
+						alert("List of valid numbers is empty.");
+					}
+				  /*
+				   * Convert our data to CSV string
+				   */
+				  var CSVString = prepCSVRow(verifiedNumbers, 1, '');
+
+				  /*
+				   * Make CSV downloadable
+				   */
+				  var downloadLink = document.createElement("a");
+				  var blob = new Blob(["\ufeff", CSVString]);
+				  var url = URL.createObjectURL(blob);
+				  downloadLink.href = url;
+				  downloadLink.download = "valid_numbers.csv";
+				  /*
+				   * Actually download CSV
+				   */
+				  document.body.appendChild(downloadLink);
+				  downloadLink.click();
+				  document.body.removeChild(downloadLink);
+				});
+			});
+		  
+		  
+		    /*
+			* Convert data array to CSV string
+			* @param arr {Array} - the actual data
+			* @param columnCount {Number} - the amount to split the data into columns
+			* @param initial {String} - initial string to append to CSV string
+			* return {String} - ready CSV string
+			*/
+			function prepCSVRow(arr, columnCount, initial) {
+			  var row = ''; // this will hold data
+			  var delimeter = ','; // data slice separator, in excel it's `;`, in usual CSv it's `,`
+			  var newLine = '\r\n'; // newline separator for CSV row
+
+			  /*
+			   * Convert [1,2,3,4] into [[1,2], [3,4]] while count is 2
+			   * @param _arr {Array} - the actual array to split
+			   * @param _count {Number} - the amount to split
+			   * return {Array} - splitted array
+			   */
+			  function splitArray(_arr, _count) {
+			    var splitted = [];
+			    var result = [];
+			    _arr.forEach(function(item, idx) {
+			      if ((idx + 1) % _count === 0) {
+			        splitted.push(item);
+			        result.push(splitted);
+			        splitted = [];
+			      } else {
+			        splitted.push(item);
+			      }
+			    });
+			    return result;
+			  }
+			  var plainArr = splitArray(arr, columnCount);
+			  // don't know how to explain this
+			  // you just have to like follow the code
+			  // and you understand, it's pretty simple
+			  // it converts `['a', 'b', 'c']` to `a,b,c` string
+			  plainArr.forEach(function(arrItem) {
+			    arrItem.forEach(function(item, idx) {
+			      row += item + ((idx + 1) === arrItem.length ? '' : delimeter);
+			    });
+			    row += newLine;
+			  });
+			  return initial + row;
+			}
+		</script>
+
+	</head>
+	<body>
+		<div class="well">
+			<div class="row">
+				<form class="form-inline">
+					<div class="form-group">
+					  <label for="files">Upload a CSV formatted file:</label>
+					  <input type="file" id="files" class="form-control" accept=".csv" required="">
+					</div>
+					<div class="form-group">
+					 <button type="submit" id="submit-file" class="btn btn-primary">Upload File</button>
+					 </div>
+				</form>
+			</div>
+			<div class="row"> 
+				<div id="processing" style="display: none;"> Processing.. 0%</div>
+			</div>
+			<div class="row"> 
+				<div id="list_download" style="display: none;">
+					<a href="javascript:;" id="export">DOWNLOAD CSV</a>
+				</div>
+			</div>
+			<div class="row"> 
+				<div id="parsed_csv_list"></div>
+			</div>
+		</div>
+	</body>
+</html>

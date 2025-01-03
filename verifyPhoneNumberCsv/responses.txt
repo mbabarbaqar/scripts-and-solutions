@@ -1,0 +1,30 @@
+{
+  "valid":true,
+  "number":"9203056916899",
+  "local_format":"03056916899",
+  "international_format":"+923056916899",
+  "country_prefix":"+92",
+  "country_code":"PK",
+  "country_name":"Pakistan (Islamic Republic of)",
+  "location":"",
+  "carrier":"Pakistan Mobile Communications (Pvt) Ltd (PMCL)",
+  "line_type":"mobile"
+}
+
+{
+  "success":false,
+  "error":{
+    "code":104,
+    "type":"usage_limit_reached",
+    "info":"Your monthly usage limit has been reached. Please upgrade your Subscription Plan."
+  }
+}
+
+{
+  "success":false,
+  "error":{
+    "code":106,
+    "type":"rate_limit_reached",
+    "info":"You have exceeded the maximum rate limitation allowed on your subscription plan. Please refer to the \"Rate Limits\" section of the API Documentation for details. "
+  }
+}
